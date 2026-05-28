@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  body { @apply bg-bone text-ink font-sans antialiased; }
+  ::selection { background-color: #1735C8; color: #fff; }
+
+  /* Honor reduced-motion globally for CSS animations too */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .container-x { @apply mx-auto w-full max-w-8xl px-5 md:px-8 lg:px-12; }
+
+  /* ---- Buttons: refined with a subtle shine sweep on hover ---- */
+  .btn-primary {
+    @apply relative inline-flex items-center justify-center gap-2 rounded-full bg-brand-red px-6 py-3.5 text-sm font-semibold text-white overflow-hidden;
+    transition: transform 0.25s cubic-bezier(0.16,1,0.3,1), box-shadow 0.25s ease, background-color 0.25s ease;
+    box-shadow: 0 1px 2px rgba(229,51,31,0.2), 0 6px 16px -6px rgba(229,51,31,0.45);
+  }
+  .btn-primary:hover { @apply bg-brand-red/90; transform: translateY(-2px); box-shadow: 0 2px 4px rgba(229,51,31,0.25), 0 14px 28px -8px rgba(229,51,31,0.5); }
+  .btn-primary:active { transform: translateY(0) scale(0.98); }
+
+  .btn-secondary {
+    @apply relative inline-flex items-center justify-center gap-2 rounded-full bg-brand-blue px-6 py-3.5 text-sm font-semibold text-white overflow-hidden;
+    transition: transform 0.25s cubic-bezier(0.16,1,0.3,1), box-shadow 0.25s ease, background-color 0.25s ease;
+    box-shadow: 0 1px 2px rgba(23,53,200,0.2), 0 6px 16px -6px rgba(23,53,200,0.45);
+  }
+  .btn-secondary:hover { @apply bg-brand-blue-deep; transform: translateY(-2px); box-shadow: 0 2px 4px rgba(23,53,200,0.25), 0 14px 28px -8px rgba(23,53,200,0.5); }
+  .btn-secondary:active { transform: translateY(0) scale(0.98); }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-ink/15 bg-white px-6 py-3.5 text-sm font-semibold text-ink;
+    transition: transform 0.25s cubic-bezier(0.16,1,0.3,1), border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease;
+  }
+  .btn-ghost:hover { @apply border-ink/40 bg-ink/5; transform: translateY(-2px); box-shadow: 0 10px 24px -12px rgba(10,24,84,0.25); }
+  .btn-ghost:active { transform: translateY(0) scale(0.98); }
+
+  .btn-white {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-semibold text-ink;
+    transition: transform 0.25s cubic-bezier(0.16,1,0.3,1), box-shadow 0.25s ease, background-color 0.25s ease;
+    box-shadow: 0 1px 2px rgba(10,24,84,0.06), 0 8px 20px -8px rgba(10,24,84,0.2);
+  }
+  .btn-white:hover { @apply bg-bone; transform: translateY(-2px); box-shadow: 0 2px 4px rgba(10,24,84,0.08), 0 16px 32px -10px rgba(10,24,84,0.28); }
+  .btn-white:active { transform: translateY(0) scale(0.98); }
+
+  /* Shine sweep element — add a <span class="shine" /> inside a button */
+  .shine::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.35) 50%, transparent 70%);
+    transform: translateX(-120%);
+    transition: transform 0.7s cubic-bezier(0.16,1,0.3,1);
+  }
+  .group:hover .shine::after, .btn-primary:hover .shine::after, .btn-secondary:hover .shine::after { transform: translateX(120%); }
+
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide;
+  }
+  .eyebrow {
+    @apply inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em];
+  }
+  .eyebrow::before { content: ''; @apply h-px w-7 bg-current opacity-50; }
+
+  .h-display { @apply font-display font-bold tracking-tightest leading-[0.95]; }
+
+  .link-arrow {
+    @apply inline-flex items-center gap-1.5 text-sm font-semibold border-b-2 border-current pb-0.5;
+    transition: gap 0.25s ease, color 0.25s ease;
+  }
+  .link-arrow:hover { @apply gap-2.5; }
+
+  .star { @apply inline-block h-3.5 w-3.5 fill-sun text-sun; }
+
+  /* Card hover lift */
+  .card-lift { transition: transform 0.4s cubic-bezier(0.16,1,0.3,1), box-shadow 0.4s ease; }
+  .card-lift:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 4px 8px rgba(10,24,84,0.06), 0 28px 52px -14px rgba(10,24,84,0.22);
+  }
+
+  /* Icon chip — a rounded square that holds an icon, animates on hover of parent .group */
+  .icon-chip {
+    @apply flex items-center justify-center rounded-2xl;
+    transition: transform 0.35s cubic-bezier(0.16,1,0.3,1), background-color 0.35s ease, color 0.35s ease;
+  }
+  .group:hover .icon-chip { transform: scale(1.08) rotate(-4deg); }
+
+  /* Gradient text accent */
+  .text-gradient {
+    background: linear-gradient(120deg, #1735C8 0%, #0EA5E9 50%, #15803D 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+@layer utilities {
+  /* Underline-grow link */
+  .ul-grow { background-image: linear-gradient(currentColor, currentColor); background-size: 0% 2px; background-repeat: no-repeat; background-position: left bottom; transition: background-size 0.3s cubic-bezier(0.16,1,0.3,1); }
+  .ul-grow:hover { background-size: 100% 2px; }
+
+  /* Floating animation for hero accents */
+  @keyframes floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  .animate-floaty { animation: floaty 5s ease-in-out infinite; }
+
+  /* Soft pulse for live/featured badges */
+  @keyframes softpulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+  .animate-softpulse { animation: softpulse 2.2s ease-in-out infinite; }
+}
+
+.marquee-track:hover { animation-play-state: paused; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
