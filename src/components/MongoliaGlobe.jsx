@@ -5,7 +5,7 @@ import { Plus, Minus, RotateCcw, X, MapPin, Plane, ArrowUpRight } from 'lucide-r
 import { mongoliaSites, gatewayCities, countryLabels } from '../data'
 import { useT } from '../i18n/LanguageContext'
 
-const COLOR_SPHERE = '#FBF8F1'
+const COLOR_SPHERE = '#1735C8'
 const COLOR_LAND = '#DCE3F2'
 const COLOR_LAND_STROKE = '#A8B5E0'
 const COLOR_MN = '#F4A79B'
