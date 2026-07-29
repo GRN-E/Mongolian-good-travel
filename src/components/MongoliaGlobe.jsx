@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import Globe from 'react-globe.gl'
+import * as THREE from 'three'
 import { Plus, Minus, RotateCcw, X, MapPin, Plane, ArrowUpRight } from 'lucide-react'
 import { mongoliaSites, gatewayCities, countryLabels } from '../data'
 import { useT } from '../i18n/LanguageContext'
 
-const COLOR_SPHERE = '#1735C8'
+const COLOR_SPHERE = '#1735C8' // Brand blue sea/ocean
 const COLOR_LAND = '#DCE3F2'
 const COLOR_LAND_STROKE = '#A8B5E0'
 const COLOR_MN = '#F4A79B'
@@ -35,6 +36,16 @@ export default function MongoliaGlobe({ selectedSlug, onSelect, width, height })
   const [countries, setCountries] = useState({ features: [] })
   const [ready, setReady] = useState(false)
   const [zoomedIn, setZoomedIn] = useState(false)
+
+  // Custom Three.js material to force the solid blue sea layer
+  const globeMaterial = useMemo(() => {
+    return new THREE.MeshPhongMaterial({
+      color: COLOR_SPHERE,
+      emissive: COLOR_SPHERE,
+      emissiveIntensity: 0.25,
+      shininess: 0.8,
+    })
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -73,14 +84,6 @@ export default function MongoliaGlobe({ selectedSlug, onSelect, width, height })
           controls.minDistance = 101
           controls.maxDistance = 600
           controls.addEventListener?.('change', evalZoom)
-        }
-        const material = g.globeMaterial?.()
-        if (material) {
-          material.color?.set?.(COLOR_SPHERE)
-          material.emissive?.set?.(COLOR_SPHERE)
-          material.emissiveIntensity = 0.85
-          material.shininess = 0
-          material.needsUpdate = true
         }
         const scene = g.scene?.()
         if (scene) {
@@ -129,12 +132,8 @@ export default function MongoliaGlobe({ selectedSlug, onSelect, width, height })
   }, [selectedSlug])
 
   const points = useMemo(() => {
-    // Dots are shown in BOTH overview and zoomed states so the exact
-    // locations are always visible. Zoomed-in just enlarges them.
     const sites = mongoliaSites.map((s) => {
       const sel = s.slug === activeSlug
-      // Selected site is marked by the star + ring instead of a plain dot,
-      // so shrink its dot to ~0 to avoid a doubled marker.
       const base = zoomedIn ? (s.isCapital ? 0.5 : 0.38) : (s.isCapital ? 0.42 : 0.3)
       return { ...s, kind: 'site', color: s.isCapital ? COLOR_CAPITAL : COLOR_SITE, radius: sel ? 0.001 : base, isSelected: sel }
     })
@@ -151,7 +150,6 @@ export default function MongoliaGlobe({ selectedSlug, onSelect, width, height })
     [points]
   )
 
-  // Pulsing ring at the EXACT selected coordinates — pinpoints the spot precisely
   const rings = useMemo(() => {
     if (!selectedPoint) return []
     const ringColor = selectedPoint.isGateway
@@ -162,21 +160,17 @@ export default function MongoliaGlobe({ selectedSlug, onSelect, width, height })
     return [{ lat: selectedPoint.lat, lng: selectedPoint.lng, color: ringColor }]
   }, [selectedPoint])
 
-  // A star marker sitting exactly on the selected point
   const starData = useMemo(() => {
     if (!selectedPoint) return []
     return [{ lat: selectedPoint.lat, lng: selectedPoint.lng, ...selectedPoint }]
   }, [selectedPoint])
 
-  // HTML overlay data: country name labels (always) + the star (when selected).
-  // Country labels are tagged _kind:'country', the star _kind:'star'.
   const htmlData = useMemo(() => {
     const labels = countryLabels.map((c) => ({ ...c, _kind: 'country' }))
     const star = starData.map((s) => ({ ...s, _kind: 'star' }))
     return [...labels, ...star]
   }, [starData])
 
-  // Live-position the popup next to its marker using screen projection
   useEffect(() => {
     if (!selectedPoint || !zoomedIn) return
     let raf
@@ -187,16 +181,12 @@ export default function MongoliaGlobe({ selectedSlug, onSelect, width, height })
         try {
           const c = g.getScreenCoords(selectedPoint.lat, selectedPoint.lng, 0.01)
           if (c && Number.isFinite(c.x) && Number.isFinite(c.y)) {
-            // Clamp so the popup never spills outside the globe canvas.
             const pad = 12
             const popW = el.offsetWidth || 220
             const popH = el.offsetHeight || 180
-            // horizontal: keep the (center-anchored) card fully visible
             const minX = pad + popW / 2
             const maxX = (width || 0) - pad - popW / 2
             const x = Math.min(Math.max(c.x, minX), Math.max(minX, maxX))
-            // vertical: the card sits above the point (translateY -100%). If the
-            // point is too high to fit the card above it, flip the card below.
             const fitsAbove = c.y - popH - 18 > pad
             el.style.left = `${x}px`
             el.style.top = `${c.y}px`
@@ -209,30 +199,22 @@ export default function MongoliaGlobe({ selectedSlug, onSelect, width, height })
     }
     raf = requestAnimationFrame(update)
     return () => cancelAnimationFrame(raf)
-  }, [selectedPoint, zoomedIn])
+  }, [selectedPoint, zoomedIn, width])
 
   const arcs = useMemo(() => {
     if (zoomedIn) return []
     const ub = mongoliaSites.find((s) => s.slug === 'ulaanbaatar')
     if (!ub) return []
 
-    // Phase 1 — foreign cities → Ulaanbaatar (blue).
-    // A gradient color array makes each dash glow at its leading head and
-    // fade at the tail — like a comet of light travelling the route.
     const inbound = gatewayCities.map((c, i) => ({
       startLat: c.lat, startLng: c.lng,
       endLat: ub.lat, endLng: ub.lng,
-      // transparent tail → solid head
       color: [`${COLOR_ARC_INBOUND}00`, COLOR_ARC_INBOUND],
       stroke: 0.45,
-      // Phase 1 occupies the first part of the loop; small per-line stagger
       dashInitial: -(i * 0.06),
       leg: 'in',
     }))
 
-    // Phase 2 — Ulaanbaatar → domestic tourist sites (red).
-    // Offset their initial gap so they begin AFTER the inbound lines have
-    // visually "arrived", creating the world→UB→sites story.
     const domestic = mongoliaSites
       .filter((s) => !s.isCapital)
       .map((s, i) => ({
@@ -240,13 +222,10 @@ export default function MongoliaGlobe({ selectedSlug, onSelect, width, height })
         endLat: s.lat, endLng: s.lng,
         color: [`${COLOR_ARC_OUTBOUND}00`, COLOR_ARC_OUTBOUND],
         stroke: 0.45,
-        // start roughly half a loop later than inbound → sequential phases
         dashInitial: 0.5 - (i * 0.05),
         leg: 'out',
       }))
 
-    // Phase 3 — Ulaanbaatar → foreign cities (red), the return leg.
-    // This makes the UB↔world connection visible in both directions.
     const outboundForeign = gatewayCities.map((c, i) => ({
       startLat: ub.lat, startLng: ub.lng,
       endLat: c.lat, endLng: c.lng,
@@ -301,7 +280,6 @@ export default function MongoliaGlobe({ selectedSlug, onSelect, width, height })
 
   const sel = selectedPoint
   const selAccent = sel?.isGateway ? 'border-brand-blue' : sel?.isCapital ? 'border-sun' : 'border-brand-red'
-  const selBar = sel?.isGateway ? 'bg-brand-blue' : sel?.isCapital ? 'bg-sun' : 'bg-brand-red'
   const selChip = sel?.isGateway ? 'bg-brand-blue-soft' : sel?.isCapital ? 'bg-sun-soft' : 'bg-brand-red-soft'
   const selText = sel?.isGateway ? 'text-brand-blue' : sel?.isCapital ? 'text-sun' : 'text-brand-red'
 
@@ -311,7 +289,7 @@ export default function MongoliaGlobe({ selectedSlug, onSelect, width, height })
         ref={globeRef}
         width={width}
         height={height}
-        globeImageUrl={null} //
+        globeMaterial={globeMaterial}
         backgroundColor="rgba(0,0,0,0)"
         showAtmosphere={true}
         atmosphereColor={COLOR_ATMOSPHERE}
@@ -334,16 +312,14 @@ export default function MongoliaGlobe({ selectedSlug, onSelect, width, height })
         onPointClick={(p) => { if (p?.slug && onSelect) onSelect(p.slug) }}
         pointLabel={(p) =>
           p.isSelected
-            ? '' // selected one shows the full popup, not a tooltip
+            ? ''
             : `<div style="display:flex;align-items:center;gap:6px;background:rgba(10,24,84,0.95);color:#fff;padding:6px 12px;border-radius:8px;font-family:Onest,sans-serif;font-size:12.5px;font-weight:600;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,0.2);"><span style="font-size:15px;">${p.icon || '📍'}</span>${t(p.name)}</div>`
         }
 
-        // Pulsing locator ring at the exact selected coordinate
         ringsData={rings}
         ringLat="lat"
         ringLng="lng"
         ringColor={(r) => (tInterp) => {
-          // fade from solid to transparent as the ring expands
           const c = r.color
           const a = Math.max(0, 1 - tInterp)
           return `${c}${Math.round(a * 255).toString(16).padStart(2, '0')}`
@@ -353,7 +329,6 @@ export default function MongoliaGlobe({ selectedSlug, onSelect, width, height })
         ringRepeatPeriod={1100}
         ringAltitude={0.009}
 
-        // Star marker (selected) + country name labels
         htmlElementsData={htmlData}
         htmlLat="lat"
         htmlLng="lng"
@@ -361,7 +336,6 @@ export default function MongoliaGlobe({ selectedSlug, onSelect, width, height })
         htmlElement={(d) => {
           const el = document.createElement('div')
 
-          // Country name label
           if (d._kind === 'country') {
             const isMn = d.key === 'Mongolia'
             const isKr = d.key === 'South Korea'
@@ -376,7 +350,6 @@ export default function MongoliaGlobe({ selectedSlug, onSelect, width, height })
             return el
           }
 
-          // Star marker pinned EXACTLY on the selected point
           const starColor = d.isGateway ? '#1735C8' : d.isCapital ? '#F59E0B' : '#E5331F'
           el.style.cssText = 'pointer-events:none;transform:translate(-50%,-50%);'
           el.innerHTML = `
@@ -405,7 +378,6 @@ export default function MongoliaGlobe({ selectedSlug, onSelect, width, height })
         style={{ background: 'radial-gradient(circle at center, transparent 62%, rgba(251,248,241,0.4) 100%)' }}
       />
 
-      {/* Anchored popup — tracks the selected marker's screen position */}
       {sel && (
         <div
           ref={popupRef}
@@ -451,7 +423,6 @@ export default function MongoliaGlobe({ selectedSlug, onSelect, width, height })
                 <ArrowUpRight className="h-3.5 w-3.5" />
               </Link>
             </div>
-            {/* little pointer tail */}
             <div
               className="globe-popup-tail absolute left-1/2 -bottom-[7px] -translate-x-1/2 w-3 h-3 bg-white rotate-45 ring-1 ring-line"
               style={{ clipPath: 'polygon(100% 0, 0 100%, 100% 100%)' }}
@@ -460,7 +431,6 @@ export default function MongoliaGlobe({ selectedSlug, onSelect, width, height })
         </div>
       )}
 
-      {/* Overview hint */}
       {!zoomedIn && ready && (
         <div className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 max-w-[90%] bg-white/90 backdrop-blur rounded-full px-3 py-1.5 sm:px-4 sm:py-2 ring-1 ring-line text-[10px] sm:text-[11px] font-semibold text-ink-2 flex items-center gap-1.5 sm:gap-2 whitespace-nowrap">
           <Plus className="h-3.5 w-3.5 text-brand-blue shrink-0" strokeWidth={2.4} />
@@ -468,7 +438,6 @@ export default function MongoliaGlobe({ selectedSlug, onSelect, width, height })
         </div>
       )}
 
-      {/* Flight-route legend (overview only) */}
       {!zoomedIn && ready && (
         <div className="pointer-events-none absolute bottom-4 left-4 bg-white/90 backdrop-blur rounded-xl px-3 py-2.5 ring-1 ring-line text-[10px] sm:text-[11px] font-semibold space-y-1.5">
           <div className="flex items-center gap-2">
@@ -477,12 +446,11 @@ export default function MongoliaGlobe({ selectedSlug, onSelect, width, height })
           </div>
           <div className="flex items-center gap-2">
             <span className="inline-block w-5 h-[3px] rounded-full" style={{ background: COLOR_ARC_OUTBOUND }} />
-            <span className="text-ink-2">{t({ mn: 'Улаанбаатар → Аялал', en: 'Ulaanbaatar → Sites', kr: '울란바토르 → 명소' })}</span>
+            <span className="text-ink-2">{t({ mn: 'Улаанбаатар → Аялал', en: 'Ulaanbaatar → Sites', kr: '울ран바토르 → 명소' })}</span>
           </div>
         </div>
       )}
 
-      {/* Dot legend (zoomed-in only) — shows what the markers mean */}
       {zoomedIn && ready && (
         <div className="pointer-events-none absolute bottom-4 left-4 right-16 sm:right-auto hidden xs:flex flex-wrap items-center gap-x-3 gap-y-1 bg-white/90 backdrop-blur rounded-2xl sm:rounded-full px-3 py-2 ring-1 ring-line text-[10px] sm:text-[11px] font-semibold">
           <span className="flex items-center gap-1.5">
@@ -502,7 +470,6 @@ export default function MongoliaGlobe({ selectedSlug, onSelect, width, height })
         </div>
       )}
 
-      {/* Zoom controls */}
       <div className="absolute bottom-4 right-4 flex flex-col gap-1.5 z-30">
         <button onClick={() => zoomBy(0.6)} aria-label="Zoom in"
           className="h-10 w-10 rounded-xl bg-white/95 backdrop-blur ring-1 ring-line shadow-card flex items-center justify-center text-ink hover:bg-brand-blue hover:text-white transition active:scale-95">
