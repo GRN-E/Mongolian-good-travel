@@ -76,7 +76,7 @@ export default function MongoliaGlobe({ selectedSlug, onSelect, width, height })
         }
         const material = g.globeMaterial?.()
         if (material) {
-          material.color?.set?.(#1735C8)
+          material.color?.set?.("#1735C8")
           material.emissiveIntensity = 0
           material.shininess = 0
           material.needsUpdate = true
