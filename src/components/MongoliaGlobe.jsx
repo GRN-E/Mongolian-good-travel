@@ -5,7 +5,7 @@ import { Plus, Minus, RotateCcw, X, MapPin, Plane, ArrowUpRight } from 'lucide-r
 import { mongoliaSites, gatewayCities, countryLabels } from '../data'
 import { useT } from '../i18n/LanguageContext'
 
-const COLOR_SPHERE = '#1735C8'
+const COLOR_SPHERE = '#FBF8F1'
 const COLOR_LAND = '#DCE3F2'
 const COLOR_LAND_STROKE = '#A8B5E0'
 const COLOR_MN = '#F4A79B'
@@ -76,9 +76,8 @@ export default function MongoliaGlobe({ selectedSlug, onSelect, width, height })
         }
         const material = g.globeMaterial?.()
         if (material) {
-          material.color?.set?.(COLOR_SPHERE)
-          material.emissive?.set?.(COLOR_SPHERE)
-          material.emissiveIntensity = 0.95
+          material.color?.set?.(#1735C8)
+          material.emissiveIntensity = 0
           material.shininess = 0
           material.needsUpdate = true
         }
@@ -311,6 +310,7 @@ export default function MongoliaGlobe({ selectedSlug, onSelect, width, height })
         ref={globeRef}
         width={width}
         height={height}
+        globeImageUrl={null} //
         backgroundColor="rgba(0,0,0,0)"
         showAtmosphere={true}
         atmosphereColor={COLOR_ATMOSPHERE}
